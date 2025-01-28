@@ -1,0 +1,57 @@
+yum update -y
+yum install epel release -y
+yum install openvpn easy-rsa -y
+nano /etc/openvpn/server/server.conf
+
+port 1194
+proto udp
+dev tun
+ca /etc/openvpn/server/ca.crt
+cert /etc/openvpn/server/server.crt
+key /etc/openvpn/server/server.key
+dh /usr/share/easy-rsa/3/pki/dh.pem
+topology subnet
+server 10.8.0.0 255.255.255.0
+cipher BF-CBC
+log-append /var/log/openvpn.log
+user nobody
+group nobody
+remote-cert-tls client
+
+cd /usr/share/easy-rsa/3
+./easyrsa init-pki
+./easyrsa build-ca
+./easyrsa build-server-full server
+./easyrsa gen-dh
+
+cp pki/ca.crt /etc/openvpn/server/
+cp pki/issued/server.crt /etc/openvpn/server/
+cp pki/private/server.key /etc/openvpn/server/
+cp /usr/share/easy-rsa/3/pki/dh.pem /etc/openvpn/server/
+
+nano /etc/openvpn/client/client.conf
+client
+dev tun
+proto udp
+remote 10.8.0.1 1194
+resolv-retry infinite
+nobind
+persist-key
+persist-tun
+ca /etc/openvpn/client/ca.crt
+cert /etc/openvpn/client/client.crt
+key /etc/openvpn/client/client.key
+cipher BF-CBC
+auth-nocache
+
+./easyrsa gen-req client nopass
+./easyrsa sign-req client client
+
+cp /etc/openvpn/server/ca.crt /etc/openvpn/client/
+cp pki/issued/client.crt /etc/openvpn/client/
+cp pki/private/client.key /etc/openvpn/client/
+
+systemctl enable openvpn-server@server
+systemctl start openvpn-server@server
+systemctl status openvpn-server@server
+openvpn --config /etc/openvpn/client/client.conf

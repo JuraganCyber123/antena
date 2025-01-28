@@ -1,0 +1,53 @@
+LKS Directori listing :
+
+sudo mkdir -p /var/www/html/tes/dir1
+sudo mkdir -p /var/www/html/tes/dir2
+sudo mkdir -p /var/www/html/tes/dir3
+sudo touch /var/www/html/tes/file1 /var/www/html/tes/penting /var/www/html/tes/puguh /var/www/html/tes/rahasia
+sudo touch /var/www/html/tes/dir1/abcd
+sudo nano /etc/httpd/conf/httpd.conf
+
+Tambahkan :
+<Directory "/var/www/html/tes">
+    Options Indexes FollowSymLinks
+    AllowOverride None
+    Require all granted
+</Directory>
+
+Restart Apache
+
+sudo systemctl restart httpd
+
+pengujian awal :
+Akses Directory Listing
+Buka browser dan akses URL:
+
+http://<IP_SERVER>/tes/
+
+KEAMANAN :
+
+sudo nano /var/www/html/tes/.htaccess
+
+Isi file:
+
+IndexIgnore penting rahasia
+
+MASUK KE Dir "sudo nano /etc/httpd/conf/httpd.conf"
+ubah " AllowOverride None" menjadi  "AllowOverride all" di konfigurasi yang tadi ditambahkan
+
+Restart Apache kembali:
+
+sudo systemctl restart httpd
+
+pengujian kedua :
+Akses Directory Listing
+Buka browser dan akses URL:
+
+http://<IP_SERVER>/tes/
+
+navigasi directori listing :
+Hapus kata "Indexes" yang tadi di tambahkan di /etc/httpd/conf/httpd.conf
+
+lalu uji akhir :
+http://<IP_SERVER>/tes/
+

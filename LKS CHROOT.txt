@@ -1,0 +1,46 @@
+LKS CENTOS 7
+CHROOT :
+
+useradd jail
+passwd jail
+ssh jail@localhost
+mkdir /chroot
+cd /chroot/
+mkdir -p bin lib64 etc home/user
+yum install tree -y
+tree
+cp /bin/{bash,ls,echo,mkdir,pwd} bin
+tree
+sudo cp /lib64/{libtinfo.so.5,libdl.so.2,libc.so.6,ld-linux-x86-64.so.2,libcap.so.2,libselinux.so.1,libacl.so.1,libpcre.so.1,libattr.so.1,libpthread.so.0} lib64/
+cp /etc/{bashrc,profile} etc
+cp /home/jail/.bashrc home/user/
+cp /home/jail/.bash_profile home/user/
+nano /etc/profile
+
+tambah di ujung 
+PS1='user@server $: '
+PATH=/bin
+
+export PATH PS1
+simpan lalu keluar 
+
+chown -R jail:jail home/user/
+nano /etc/ssh/sshd_config
+
+tambah diujung
+Match User jail
+        ChrootDirectory /chroot
+simpan lalu keluar
+
+
+CHROOT SFTP :
+groupadd sftp_group
+useradd sftp_user -g sftp_group -s /bin/false
+passwd sftp_user
+mkdir sftp
+chown :sftp_group sftp/
+ll
+usermod -a -G sftp_group sftp_user
+tail /etc/group
+
+

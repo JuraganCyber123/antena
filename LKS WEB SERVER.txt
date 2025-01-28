@@ -1,0 +1,70 @@
+LKS : Webserver Centos 7 
+
+sudo yum install httpd -y
+sudo systemctl start httpd
+sudo systemctl enable httpd
+sudo yum install php -y
+sudo systemctl restart httpd
+echo "<?php phpinfo(); ?>" | sudo tee /var/www/html/info.php
+sudo firewall-cmd --permanent --add-service=http
+sudo firewall-cmd --permanent --add-port=8080/tcp
+sudo firewall-cmd --reload
+
+cek di website 
+http://<IP_SERVER>:8080/info.php
+
+ini kedaan sebelum di patching header 
+
+sudo nano /etc/httpd/conf/httpd.conf
+Cari baris:
+
+Listen 80
+
+Ubah menjadi:
+
+Listen 8080
+
+Tambah di paling ujung :
+
+<VirtualHost *:8080>
+    DocumentRoot "/var/www/html"
+    ServerName localhost
+    <Directory "/var/www/html">
+        AllowOverride All
+        Require all granted
+    </Directory>
+</VirtualHost>
+
+ServerTokens Prod
+ServerSignature off
+Header always unset "X-Powered-By"
+Header set X-FRame-Options "sameorigin"
+Header set Strict-Transport-Security "max-age=60000; includeSubDomains"
+Header set Content-Security-Policy "script-src 'self'"
+Header set X-Content-Type-Options "nosniff"
+Header set Referrer-Policy "no-reffer"
+Header set Permissions-Policy "geolocation=(), camera=(), microphone=(), vibrate=()
+
+lalu simpan dan restart lagi httpd nya
+
+sudo systemctl restart httpd
+
+tes di mozila
+
+http://<IP_SERVER>:8080/phpinfo.php
+curl -I http://<IP_SERVER>:8080/phpinfo.php
+cek di sisi header
+
+mkdir -p /var/www/html/tes
+chmod -R 755 /var/www/html/tes
+chown -R apache:apache /var/www/html/tes
+<Directory "/var/www/html/tes">
+    Options Indexes FollowSymLinks
+    AllowOverride None
+    Require all granted
+</Directory>
+<Directory "/var/www/html/tes">
+    Require all denied
+</Directory>
+
+

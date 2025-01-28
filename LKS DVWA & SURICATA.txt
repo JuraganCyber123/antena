@@ -1,0 +1,93 @@
+LKS DVWA / IDS Suricata :
+
+Install DVWA :
+
+
+yum install git php php-mysql php-gd -y
+cd /var/www/html
+git clone https://github.com/digininja/dvwa
+chown -R root:root /var/www/html/dvwa
+cp /var/www/html/dvwa/config/config.inc.php.dist /var/www/html/dvwa/config/config.inc.php
+yum install mariadb-server -y
+systemctl start mariadb
+systemctl enable mariadb
+systemctl status mariadb
+mysql -u root -e "create database dvwa"
+mysql -u root -e "create user 'nama_user_server'@'localhost' identified by 'password bebas'"
+mysql -u root -e "grant all on dvwa.* to 'nama_user_server'@'localhost'"
+mysql -u root -e "flush privileges"
+setsebool -P httpd_can_network_connect_db 1
+nano /var/www/html/dvwa/config/config.inc.php
+cari text :
+$_DVWA[ 'db_server' ] = 'localhost';
+$_DVWA[ 'db_database' ] = 'dvwa';         // Nama database
+$_DVWA[ 'db_user' ] = 'nama_user_server';           // Nama pengguna database
+$_DVWA[ 'db_password' ] = 'nama_user_server';    // Kata sandi pengguna database
+
+SIMPAN TERUS RESTART :
+systemctl restart httpd
+
+Akses DVWA: Buka browser web Anda dan akses DVWA menggunakan alamat server Anda, misalnya:
+
+http://your-server-ip/dvwa
+
+Install SURICATA :
+yum install epel-release -y
+yum update -y
+yum install suricata
+suricata -V
+ip --brief add
+nano /etc/suricata/suricata.yaml
+TAMBAH
+
+HOME_NET: "[192.168.11.0/24]" >>> IP SESUAIKAN DENGAN SERVER
+EXTRNAL_NET: "!$HOME_NET"
+
+CARI TERUS UBAH
+- interface: ens160 >>> INTERFACE SESUAIKAN DENGAN SERVER, TERUS SIMPAN
+nano /etc/sysconfig/suricata
+OPTIONS="-i ens160 --user suricata " >>>ubah interface lagi sesuaikan, TERUS SIMPAN
+nano /etc/suricata/rules/sqli.rules
+Tambahkan aturan SQL Injection berikut:
+alert tcp any any -> any 80 (msg: "Error Based SQL Injection Detected"; content: "%27"; sid:10000001;)
+alert tcp any any -> any 80 (msg: "Error Based SQL Injection Detected"; content: "%22"; sid:10000002;)
+alert tcp any any -> any 80 (msg: "AND SQL Injection Detected"; content: "and"; nocase; sid:10000003;)
+alert tcp any any -> any 80 (msg: "OR SQL Injection Detected"; content: "or"; nocase; sid:10000004;)
+SIMPAN 
+
+nano /etc/suricata/rules/xss.rules
+Tambahkan aturan XSS berikut:
+alert tcp any any -> any 80 (msg: "XSS attack - Detected <script>"; content: "<script>"; http_uri; content: "</script>"; sid:10000005; rev:1;)
+SIMPAN
+
+nano /etc/suricata/rules/sshbf.rules
+alert tcp any any -> any 22 (msg:"SSH Bruteforce Attack Detected"; flags: S+; threshold: type both, track by_src, count 15, seconds 60; sid:10000006; rev:1;)
+SIMPAN
+
+nano /etc/suricata/suricata.yaml
+TAMBAH TEXT :
+default-rule-path: /etc/suricata/rules
+rule-files:
+  - suricata.rules
+  - sqli.rules
+  - xss.rules
+  - sshb.rules
+
+suricata-update
+systemctl enable --now suricata
+systemctl restart suricata
+systemctl status suricata
+tail /var/log/suricata/suricata.log
+tail -f /var/log/suricata/stats.log
+tail -f /var/log/suricata/eve.json
+curl http://192.168.1.81:8080/dvwa/
+curl http://testmynids.org/uid/index.html
+cat /var/log/suricata/fast.log
+
+catatan : sebelum melakukan "cat", ujicoba dulu di dvwa dengan sql injection 
+konfigurasi sql :
+'or 1=1
+' OR 1 = 1
+'
+'and 1=1
+lalu bisa cek dengan menggunakan cat

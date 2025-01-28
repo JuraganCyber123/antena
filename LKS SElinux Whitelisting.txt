@@ -1,0 +1,25 @@
+LKS SElinux Whitelisting 
+sudo nano /etc/ssh/sshd_config
+
+BUKA PORT 22
+UBAH MENJADI PORT Default seperti 
+PORT 2323 dari asal PORT 22
+
+systemctl restart sshd
+
+setelah di restart ini akan terjadi error karena ssh ditak menerima port selain 22
+
+systemctl status sshd
+
+listing selinux port dengan context ssh_port_t, hanya terdefinisi satu port saja ssh 
+bisa mengassign port
+
+menambahkan port baru ssh kita 2323 pada context ssh_port_t
+
+semanage port -a -t ssh_port_t -p tcp 2323
+semanage port -l | grep "ssh_port_t"
+systemctl restart sshd
+systemctl status sshd
+firewall-cmd --add-port=2323/tcp --permanent
+firewall-cmd --reload
+firewall-cmd --list-all
