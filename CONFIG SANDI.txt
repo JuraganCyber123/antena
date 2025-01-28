@@ -1,0 +1,161 @@
+Document Host Information
+hostnamectl set-hostname "sandi"
+hostnamectl
+
+Selinux
+nano /etc/selinux/config
+lalu disabled kan yang selinux di tengah
+sudo reboot
+sestatus
+
+
+iptables
+systemctl disable firewalld
+systemctl stop firewalld
+yum install -y iptables-services
+systemctl enable iptables
+systemctl start iptables
+iptables -t nat -A POSTROUTING -o ens37 -j MASQUERADE
+iptables-save > /etc/sysconfig/iptables
+systemctl restart iptables
+
+firewalld
+yum install firewalld
+systemctl enable firewalld
+systemctl start firewalld
+firewall-cmd --get-active-zone
+firewall-cmd --zone-public=80/tcp --permanent
+firewall-cmd --reload
+firewall-cmd --list-all
+iptables-save |grep 80
+systemctl restart firewalld
+
+suricata
+yum install epel-release yum-plugin-copr -y
+yum copr enable @oisf/suricata_6.0
+yum install suricata -y
+suricata update
+vi /etc/sysconfig/suricata
+hapus options yang ada di dalam dan buat baru lagi
+OPTIONS="-i enp4sofo --user suricata"
+OPTIONS="-q 0 -vvv --user suricata"
+systemctl enable suricata
+systemctl restart suricata
+systemctl status suricata
+
+Nginx
+yum install epel-release -y
+yum install nginx -y
+systemctl enable nginx
+systemctl start nginx
+firewall-cmd --add-service=http --permanent
+firewall-cmd --add-service=https --permanent
+firewall-cmd --reload
+systemctl restart nginx
+
+
+Php
+yum installl httpd -y
+service httpd restart
+yum install mysql mysql-server sudo service mysql start
+sudo /etc/bin/mysql-secure-installation
+yum install php php-mysql -y
+chkconfig httpd on sudo chkconfig mysql on
+nano /var/www/html/info.php
+	<?php phpinfo(); ?>
+service httpd restart
+lalu chek di firefox 
+http://ip/info.php
+
+
+CHROOT/SSH
+yum install openssh_server
+systeemctl start sshd
+systemctl enable sshd
+netstat -anp | grep sshd
+mkdir -p /secure/jail
+chmod 755 /secure/jail
+mkdir -p /secure/jail/dev
+mknod -m 666 /secure/jail/dev/null c 1 3
+mknod -m 666 /secure/jail/dev/tty c 5 0
+mknod -m 666 /secure/jail/dev/zero c 1 5
+mknod -m 666 /secure/jail/dev/random c 1 8
+cd /secure/jail
+ldd /bin/bash
+mkdir -p /secure/jail/bin
+mkdir -p /secure/jail//lib64
+cp /usr/lib64/libtinfo.so.5 /secure/jail/lib64/
+cp /usr/lib64/ld-linux-x86-64.so.2 /secure/jail/lib64/
+cp /usr/lib64/libdl.so.2 /secure/jail/lib64/
+cp /usr/lib64/libc.so.6 /secure/jail/lib64/
+vi /etc/ssh/sshd_config
+service sshd restart
+service sshd status 
+sftp ip
+cek di cmd ssh root@ip
+
+Certificate shell
+yum install mod_ssl
+mkdir /etc/ssl/private
+chmod 700 /etc/ssl/private
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/ssl/private/apache-selfsigned.key -out /etc/ssl/certs/apache-selfsigned.crt
+openssl dhparam -out /etc/ssl/certs/dhparam pem.2048
+vi /etc/httpd/conf.d/lks.com.conf
+<VirtualHost *:443>
+        ServerName sandi.com
+        DocumentRoot /var/www/html/
+        SSLEngine on
+        SSLCertificateFile /etc/ssl/certs/apache-selfsigned.crt
+        SSLCertificateKeyFile /etc/ssl/private/apache-selfsigned.key
+</VirtualHost>
+iptables -I INPUT -p tcp -m tcp --dport 80 -j ACCEPT
+iptables -I INPUT -p tcp -m tcp --dport 443 -j ACCEPT
+systemctl restart httpd
+cek di firefox https://ip:443
+
+net-tools/openvpn
+yum install net-tools
+wget http://swupdate.openvpn.org/as/openvpn-as-2.0.10-CentOS7.x86_64.rpm
+rpm -i openvpn-as-2.0.10-CentOS7.x86_64.rpm
+firewall-cmd --add-port=943/tcp  --permanent
+firewall-cmd --add-port=1194/udp --permanent
+firewall-cmd --reload
+passwd openvpn
+123
+123
+cek di firefox https://ip:943
+
+modeevasive
+yum install epel-release -y
+yum install git -y
+yum install mod_security -y
+yum install mod_evasive -y
+service httpd restart
+mkdir /etc/httpd/crs
+cd /etc/httpd/crs
+git clone https://github.com/Spiderlabs/owasp-modsecurity-crs.git
+cd /etc//httpd/crs/owasp-modsecurity-crs/
+cp crs-setup.conf.example crs-setup.conf
+vi /etc/httpd/conf.d/mod_security.conf
+	IncludeOptional /etc/httpd/crs/owasp-modsecurity-crs/crs-setup.conf
+	IncludeOptional /etc/httpd/crs/owasp-modsecurity-crs/rules/*.conf
+service httpd restart
+sudo tail -f /var/log/audit/audit.log
+
+
+
+header
+sudo nano /etc/httpd/conf.d/example.conf
+        Header always append X-Frame-Options "SAMEORIGIN"
+        Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        Header always set Content-Security-Policy "default-src 'self';"
+        Header always set Permissions-Policy "geolocation=(self), microphone=(), camera=()"
+        Header always set Referrer-Policy "same-origin"
+        Header always set X-Content-Type-Options "nosniff"
+systemctl restart httpd
+ curl -I http://192.168.3.3
+
+
+
+
+
