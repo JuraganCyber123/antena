@@ -1,30 +1,42 @@
-LKS DVWA / IDS Suricata :
+DVWA / IDS Suricata : Centos Stream 9
 
 Install DVWA :
 
+sudo dnf install -y httpd mariadb-server php php-mysqli php-gd php-curl php-zip unzip git
 
-yum install git php php-mysql php-gd -y
+sudo systemctl enable --now httpd
+sudo systemctl enable --now mariadb
+sudo mysql_secure_installation
+sudo mysql -u root -p
+
+CREATE DATABASE dvwa;
+CREATE USER 'dvwauser'@'localhost' IDENTIFIED BY 'dvwapassword';
+GRANT ALL PRIVILEGES ON dvwa.* TO 'dvwauser'@'localhost';
+FLUSH PRIVILEGES;
+EXIT;
+
 cd /var/www/html
-git clone https://github.com/digininja/dvwa
-chown -R root:root /var/www/html/dvwa
-cp /var/www/html/dvwa/config/config.inc.php.dist /var/www/html/dvwa/config/config.inc.php
-yum install mariadb-server -y
-systemctl start mariadb
-systemctl enable mariadb
-systemctl status mariadb
-mysql -u root -e "create database dvwa"
-mysql -u root -e "create user 'nama_user_server'@'localhost' identified by 'password bebas'"
-mysql -u root -e "grant all on dvwa.* to 'nama_user_server'@'localhost'"
-mysql -u root -e "flush privileges"
-setsebool -P httpd_can_network_connect_db 1
-nano /var/www/html/dvwa/config/config.inc.php
-cari text :
-$_DVWA[ 'db_server' ] = 'localhost';
-$_DVWA[ 'db_database' ] = 'dvwa';         // Nama database
-$_DVWA[ 'db_user' ] = 'nama_user_server';           // Nama pengguna database
-$_DVWA[ 'db_password' ] = 'nama_user_server';    // Kata sandi pengguna database
+sudo git clone https://github.com/digininja/DVWA.git
+sudo mv DVWA dvwa
+sudo chown -R apache:apache /var/www/html/dvwa
+sudo chmod -R 755 /var/www/html/dvwa
+cd /var/www/html/dvwa/config
+sudo cp config.inc.php.dist config.inc.php
+sudo nano config.inc.php
 
-SIMPAN TERUS RESTART :
+Cari bagian berikut dan ubah sesuai dengan database yang dibuat sebelumnya:
+
+$_DVWA[ 'db_server' ]   = 'localhost';
+$_DVWA[ 'db_database' ] = 'dvwa';
+$_DVWA[ 'db_user' ]     = 'dvwauser';
+$_DVWA[ 'db_password' ] = 'dvwapassword';
+
+Jika SELinux aktif, atur kebijakan agar DVWA dapat berjalan:
+
+sudo setsebool -P httpd_unified 1
+sudo setsebool -P httpd_can_network_connect_db 1
+sudo firewall-cmd --permanent --add-service=http
+sudo firewall-cmd --reload
 systemctl restart httpd
 
 Akses DVWA: Buka browser web Anda dan akses DVWA menggunakan alamat server Anda, misalnya:
@@ -32,21 +44,25 @@ Akses DVWA: Buka browser web Anda dan akses DVWA menggunakan alamat server Anda,
 http://your-server-ip/dvwa
 
 Install SURICATA :
-yum install epel-release -y
-yum update -y
-yum install suricata
+dnf install epel-release -y
+dnf install suricata -y
 suricata -V
 ip --brief add
 nano /etc/suricata/suricata.yaml
 TAMBAH
-
 HOME_NET: "[192.168.11.0/24]" >>> IP SESUAIKAN DENGAN SERVER
-EXTRNAL_NET: "!$HOME_NET"
+- interface: ens160 >>> INTERFACE SESUAIKAN DENGAN SERVER
+default-rule-path: /etc/suricata/rules
+rule-files:
+  - suricata.rules
+  - sqli.rules
+  - xss.rules
+  - sshbf.rules
+SIMPAN.
 
-CARI TERUS UBAH
-- interface: ens160 >>> INTERFACE SESUAIKAN DENGAN SERVER, TERUS SIMPAN
 nano /etc/sysconfig/suricata
 OPTIONS="-i ens160 --user suricata " >>>ubah interface lagi sesuaikan, TERUS SIMPAN
+
 nano /etc/suricata/rules/sqli.rules
 Tambahkan aturan SQL Injection berikut:
 alert tcp any any -> any 80 (msg: "Error Based SQL Injection Detected"; content: "%27"; sid:10000001;)
@@ -57,26 +73,19 @@ SIMPAN
 
 nano /etc/suricata/rules/xss.rules
 Tambahkan aturan XSS berikut:
-alert tcp any any -> any 80 (msg: "XSS attack - Detected <script>"; content: "<script>"; http_uri; content: "</script>"; sid:10000005; rev:1;)
+alert http any any -> any any (msg:"Potential XSS Attack - alert() detected"; content:"alert("; nocase; http_uri; sid:100001; rev:1;)
+alert http any any -> any any (msg:"Possible XSS Attack - Script Injection"; content:"<script>"; nocase; http_client_body; content:"alert("; distance:0; nocase; sid:100002; rev:1;)
+alert http any any -> any any (msg:"XSS Attempt in URL Parameter"; uricontent:"<script>alert("; nocase; sid:100003; rev:1;)
+alert http any any -> any any (msg:"XSS Attack - JavaScript Event Handler"; content:"onerror="; nocase; http_client_body; sid:100004; rev:1;)
 SIMPAN
 
 nano /etc/suricata/rules/sshbf.rules
 alert tcp any any -> any 22 (msg:"SSH Bruteforce Attack Detected"; flags: S+; threshold: type both, track by_src, count 15, seconds 60; sid:10000006; rev:1;)
 SIMPAN
 
-nano /etc/suricata/suricata.yaml
-TAMBAH TEXT :
-default-rule-path: /etc/suricata/rules
-rule-files:
-  - suricata.rules
-  - sqli.rules
-  - xss.rules
-  - sshb.rules
-
 suricata-update
 systemctl enable --now suricata
 systemctl restart suricata
-systemctl status suricata
 tail /var/log/suricata/suricata.log
 tail -f /var/log/suricata/stats.log
 tail -f /var/log/suricata/eve.json
@@ -91,3 +100,8 @@ konfigurasi sql :
 '
 'and 1=1
 lalu bisa cek dengan menggunakan cat
+
+<serangan brute force di suricata>
+nmap --script ssh-brute -p 22 <ip server>
+<serangan xss>
+<sript>alert('hellow')</script>
