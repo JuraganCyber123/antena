@@ -1,0 +1,22 @@
+sudo yum install epel-release -y
+sudo yum install mod_evasive -y
+nano /etc/httpd/conf.d/mod_evasive.conf
+>DOSHashTableSize    3097
+>DOSPageCount        5
+>DOSSiteCount        50
+>DOSPageInterval     1
+>DOSSiteInterval     1
+>DOSBlockingPeriod   10
+>DOSSystemCommand    "/sbin/iptables -A INPUT -s %s -j DROP"
+>DOSLogDir           "/var/log/mod_evasive"
+
+mkdir -p /var/log/mod_evasive
+chown -R apache:apache /var/log/mod_evasive
+nano /etc/httpd/conf/httpd.conf
+ServerName localhost
+systemctl restart httpd
+firewall-cmd --permanent --add-service=http
+firewall-cmd --reload
+httpd -M | grep evasive
+tail -f /var/log/httpd/error_log
+ab -n 1000 -c 100 http://iptarget/
